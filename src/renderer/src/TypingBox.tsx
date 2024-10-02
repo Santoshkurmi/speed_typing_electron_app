@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { RefreshCw } from 'lucide-react';
+import { PauseIcon, Play, RefreshCw } from 'lucide-react';
 import nepaliCorpus from "./assets/nepali.txt";
 import englishCorpus from "./assets/english.txt";
 import wallpaer from "./assets/bg.jpg";
+import music from "./assets/music.m4a";
 import { tmpdir } from 'os';
 
 const keyToNep: any = {
@@ -136,9 +137,13 @@ export default function TypingBox() {
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
   const [result, setResult] = useState({ accuracy: 0, wrong: 0, right: 0 })
 
+  const playerRef = useRef<HTMLAudioElement>(null)
+  const [playing,setPlaying] = useState(false)
+
   // const words = useMemo(() => text.split(" "), [text]);
   // const []
   const [fileContent, setFileContent] = useState<string[]>([]);
+
 
 
   useEffect(() => {
@@ -346,6 +351,12 @@ export default function TypingBox() {
     }//
   }
 
+  const toggleMusic = ()=>{
+    if(!playing)
+      playerRef.current?.play()
+    else playerRef.current?.pause()
+  }
+
   // console.log(duration)
 
   return (
@@ -353,14 +364,16 @@ export default function TypingBox() {
       style={{ backgroundImage: `url(${wallpaer})` }}
       className={"flex select-none  font-serif bg-cover bg-center  flex-col items-center justify-center min-h-screen  text-white   p-4 "}>
 
-
+      <audio ref={playerRef} onPlay={()=>setPlaying(true)} onPause={()=>setPlaying(false)}  className='bg-gray-900 text-gray-400 '>
+        <source  src={music} type='audio/mp3'/>
+      </audio>
 
 
 
       <div className="w-full   max-w-5xl relative bg-gray-700/70 rounded-lg shadow-md p-6 space-y-6">
 
 
-      <div className="langauge absolute left-10 top-10">
+      <div className="langauge absolute left-10 top-10 p-3">
             <select onChange={(e) => { setWordLength(  parseInt(e.target.value) ) ; handleReset()}} className='bg-gray-600 rounded-md p-3'>
               <option value="10">10 Words</option>
               <option value="11">11 Words</option>
@@ -375,6 +388,11 @@ export default function TypingBox() {
               <option value="20">20 Words</option>
 
             </select>
+
+          <div onClick={toggleMusic} className='absolute hover:opacity-85 active:opacity-65 top-4 -right-16'>
+            {playing?  <PauseIcon size={30} className='text-green-300 '/> :<Play size={30} className='text-red-500'/>}
+          </div>
+
           </div>
 
 
