@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import {RefreshCw } from 'lucide-react';
-import wordCorpus from "./assets/sentences.txt";
+import { RefreshCw } from 'lucide-react';
+import nepaliCorpus from "./assets/nepali.txt";
+import englishCorpus from "./assets/english.txt";
 import wallpaer from "./assets/bg.jpg";
-// import Nepal from "nepalify";
+import { tmpdir } from 'os';
 
-
-const keyToNep:any = {
+const keyToNep: any = {
   //
   "a": "\u093E", // ा
   "b": "\u092C", // ब
@@ -100,8 +100,8 @@ const keyToNep:any = {
   "?": "\u003F", // ?
 };
 
-const keyToEng:any = {};
-  
+const keyToEng: any = {};
+
 Object.keys(keyToNep).forEach(key => {
   const value = keyToNep[key];
   keyToEng[value] = key;  // Swap key and value
@@ -116,10 +116,13 @@ export default function TypingBox() {
   const sentence = useRef<string[]>([]);
 
   const [input, setInput] = useState('');
+  const [language, setLanguage] = useState<"nepali" | "english">("nepali");
   const [duration, setDuration] = useState(60);
-  const [nextLetterHint,setNextLetterHint] = useState("");
-  const [currentWPM,setCurrentWPM] = useState(0)
+  const [nextLetterHint, setNextLetterHint] = useState("");
+  const [currentWPM, setCurrentWPM] = useState(0)
+  const [currentCPM, setCurrentCPM] = useState(0)
   const [timer, setTimer] = useState(duration);
+  const characterCount = useRef(0)
   const [isActive, setIsActive] = useState(false);
   const [wordsPerMinute, setWordsPerMinute] = useState(0);
   const [modalIsOpen, setIsOpen] = React.useState(false);
@@ -129,6 +132,7 @@ export default function TypingBox() {
   const totalCount = useRef(0);
   const currentErrorIndex = useRef<number>(-1);
   const errorsIndex = useRef<number[]>([]);
+  const [wordLength,setWordLength] = useState(10)
   const textAreaRef = useRef<HTMLTextAreaElement>(null);
   const [result, setResult] = useState({ accuracy: 0, wrong: 0, right: 0 })
 
@@ -140,19 +144,23 @@ export default function TypingBox() {
   useEffect(() => {
     textAreaRef.current?.focus()
     const fetchFile = async () => {
-      const response = await fetch(wordCorpus);
+      // alert(language)
+      const response = await fetch(language == "nepali" ? nepaliCorpus : englishCorpus);
       const text = await response.text();
       setFileContent(text.split("\n").sort(() => 0.5 - Math.random()));
     };
     fetchFile();
-  }, []);
+  }, [language]);
 
 
   useEffect(() => {
     if (fileContent.length == 0) return;
+    handleReset()
     // console.log("hello2")
     setRandomWords()
   }, [fileContent])
+
+
 
 
   function setRandomWords() {
@@ -161,7 +169,6 @@ export default function TypingBox() {
     var senTrack = sentenceWordTrack.current;
     console.log(sentence.current, "Now")
     if (sentenceNow.length == 0) {
-      console.log("Now happening")
       const index = Math.round(Math.random() * (fileContent.length - 1));
       sentence.current = fileContent[index].split(" ")
       sentenceNow = sentence.current;
@@ -171,14 +178,11 @@ export default function TypingBox() {
     }
     // const senTrack = sentenceWordTrack.current;
     // if(senTrack < sentenceN  ow.length ){
-    console.log(sentenceNow, 'quoteint')
-    let quotient = Math.ceil((sentenceNow.length - senTrack) / 10);
-    console.log(quotient, "quotient")
-    let remainder = (sentenceNow.length - senTrack) % 10;
+    let quotient = Math.ceil((sentenceNow.length - senTrack) / wordLength);
+    let remainder = (sentenceNow.length - senTrack) % wordLength;
     if (quotient > 0) {
-      console.log("hello")
-      sentenceWordTrack.current = senTrack + 10;
-      setWords(sentenceNow.slice(senTrack, senTrack + 10))
+      sentenceWordTrack.current = senTrack + wordLength;
+      setWords(sentenceNow.slice(senTrack, senTrack + wordLength))
     }
     else if (remainder > 0) {
       sentenceWordTrack.current = senTrack + remainder;
@@ -197,33 +201,36 @@ export default function TypingBox() {
 
 
   useEffect(() => {
-    let interval = null;
+    var interval: any = null;
     if (isActive && timer > 0) {
       interval = setInterval(() => {
         setTimer((timer) => timer - 1);
       }, 1000);
     } else if (timer === 0) {
-      if(interval)
-      clearInterval(interval);
+      if (interval)
+        clearInterval(interval);
       setIsActive(false);
       calculateWPM();
 
     }
-    return () => {interval && clearInterval(interval);} 
+    return () => { interval && clearInterval(interval); }
   }, [isActive, timer]);
 
-  const calculateCurrentWPM = ()=>{
+  const calculateCurrentWPM = () => {
     const correctTotal = totalCount.current - errorCounts.current;
-    const wordsPerMin = Math.round(correctTotal / (duration-timer) * 60);
+    const wordsPerMin = Math.round(correctTotal / (duration - timer) * 60);
+    const charsPerMin = Math.round(characterCount.current / (duration - timer) * 60);
+    setCurrentCPM(charsPerMin)
     setCurrentWPM(wordsPerMin);
-    
+
   }
 
   const calculateWPM = () => {
     // const words = totalCount.current;
     const correctTotal = totalCount.current - errorCounts.current;
-    const wordsPerMin = Math.round(correctTotal / duration * 60);
-    const accuracy = Math.ceil( correctTotal / totalCount.current * 100 );
+    // const charsPerMin = Math.round(characterCount.current / (duration - timer) * 60);
+    const wordsPerMin = Math.round(correctTotal / (duration - timer) * 60);
+    const accuracy = Math.ceil(correctTotal / totalCount.current * 100);
     // alert("Your speed is " + wordsPerMin)
     setResult({ accuracy: accuracy, right: correctTotal, wrong: errorCounts.current })
     setIsOpen(true)
@@ -241,7 +248,9 @@ export default function TypingBox() {
     errorCounts.current = 0
     setTimer(duration);
     setNextLetterHint("")
+    setCurrentCPM(0)
     setCurrentWPM(0)
+    characterCount.current = 0
     setWordsPerMinute(0);
   };
 
@@ -260,7 +269,9 @@ export default function TypingBox() {
     currentErrorIndex.current = -1;
     totalCount.current = 0;
     setCurrentWPM(0)
+    setCurrentCPM(0)
     setWordsPerMinute(0);
+    characterCount.current = 0
     setRandomWords()
 
   };
@@ -271,19 +282,20 @@ export default function TypingBox() {
     // console.log(currentText)
     const currentWord = words[currentIndexOfWord.current]
 
-    
 
-    if( currentText.trim().length > 0  && currentText[length-1]!=" "){
-      var mapped = keyToNep[currentText[length-1]]
-      if(mapped != undefined)
-      currentText = currentText.substring(0,length-1)+mapped
+
+    if (language == "nepali" && currentText.trim().length > 0 && currentText[length - 1] != " ") {
+      var mapped = keyToNep[currentText[length - 1]]
+      if (mapped != undefined)
+        currentText = currentText.substring(0, length - 1) + mapped
     }
 
-    if(length<currentWord.length){
-      setNextLetterHint( keyToEng[currentWord[length]  ] );
-    }else{
-      setNextLetterHint("")
-    }
+    if (language == "nepali")
+      if (length < currentWord.length) {
+        setNextLetterHint(keyToEng[currentWord[length]]);
+      } else {
+        setNextLetterHint("")
+      }
     // previousText.current = currentText
 
 
@@ -296,20 +308,23 @@ export default function TypingBox() {
         errorsIndex.current.push(currentIndexOfWord.current);
         errorCounts.current++;
         // alert()
+      } else {
+        characterCount.current = characterCount.current + currentWord.length;
+        // setCharaterCount(prev=>prev+)
       }
       // else currentErrorIndex.current = -1;
       currentIndexOfWord.current++;
-     
-      
+
+
       if (currentIndexOfWord.current > words.length - 1) {
         setRandomWords()
         currentIndexOfWord.current = 0;
         errorsIndex.current = [];
         currentErrorIndex.current = -1;
-      }else{
+      } else if (language == "nepali") {
         const currentWordTe = words[currentIndexOfWord.current]
-          setNextLetterHint( keyToEng[currentWordTe[0]  ] );
-        
+        setNextLetterHint(keyToEng[currentWordTe[0]]);
+
       }
 
       setInput("")
@@ -317,67 +332,111 @@ export default function TypingBox() {
     }
     else {
       // alert(currentWord.slice(0,length))
-      if (currentWord.substring(0, length) != currentText)
+      if (currentWord.substring(0, length) != currentText) {
         currentErrorIndex.current = currentIndexOfWord.current;
+        setNextLetterHint("")
+      }
       else currentErrorIndex.current = -1;
 
       setInput(currentText)
     }
     if (!isActive && currentText.length == 1) {
       handleStart()
-      
+
     }//
   }
 
-  console.log(duration)
+  // console.log(duration)
 
   return (
     <div
-    style={{backgroundImage:`url(${wallpaer})`}}
-     className={"flex select-none  font-serif bg-cover bg-center  flex-col items-center justify-center min-h-screen  dark:text-white   text-gray-800 p-4 "}>
+      style={{ backgroundImage: `url(${wallpaer})` }}
+      className={"flex select-none  font-serif bg-cover bg-center  flex-col items-center justify-center min-h-screen  text-white   p-4 "}>
 
 
 
 
 
-      <div className="w-full   max-w-5xl relative dark:bg-gray-700 bg-white rounded-lg shadow-md p-6 space-y-6">
-      
+      <div className="w-full   max-w-5xl relative bg-gray-700/70 rounded-lg shadow-md p-6 space-y-6">
 
-          <div className='absolute right-10 top-10'>
-            <select onChange={(e)=>{ handleReset();setDuration(parseInt(e.target.value)*60);setTimer( parseInt( e.target.value)*60 ) }} className='bg-gray-600 rounded-md p-3'>
-              <option value="1">1 Min</option>
-              <option value="2">2 Min</option>
-              <option value="5">5 Min</option>
-              <option value="10">10 Min</option>
-              <option value="30">30 Min</option>
+
+      <div className="langauge absolute left-10 top-10">
+            <select onChange={(e) => { setWordLength(  parseInt(e.target.value) ) ; handleReset()}} className='bg-gray-600 rounded-md p-3'>
+              <option value="10">10 Words</option>
+              <option value="11">11 Words</option>
+              <option value="12">12 Words</option>
+              <option value="13">13 Words</option>
+              <option value="14">14 Words</option>
+              <option value="15">15 Words</option>
+              <option value="16">16 Words</option>
+              <option value="17">17 Words</option>
+              <option value="18">18 Words</option>
+              <option value="19">19 Words</option>
+              <option value="20">20 Words</option>
 
             </select>
-            <RefreshCw onClick={handleReset} className="absolute hover:opacity-80 active:opacity-30 text-red-400 right-32 top-2 w-7 h-7 mr-2" />
-
-
-
-
           </div>
+
+
+        <div className='absolute right-10 top-10 flex gap-10'>
         
+    
+        
+          <select onChange={(e) => { handleReset(); setDuration(parseInt(e.target.value) * 60); setTimer(parseInt(e.target.value) * 60) }} className='bg-gray-600 rounded-md p-3'>
+            <option value="1">1 Min</option>
+            <option value="2">2 Min</option>
+            <option value="5">5 Min</option>
+            <option value="10">10 Min</option>
+            <option value="30">30 Min</option>
+
+          </select>
+
+          <div className="langauge  top-0 right-0">
+            <select onChange={(e) => { setLanguage(e.target.value as any) }} className='bg-gray-600 rounded-md p-3'>
+              <option value="nepali">Nepali</option>
+              <option value="english">English</option>
+
+            </select>
+          </div>
+          <RefreshCw onClick={handleReset} className=" hover:opacity-80 active:opacity-30 text-red-400 right-32 top-2 w-7 h-7 mr-2" />
+
+
+
+
+
+        </div>
+
         {
           modalIsOpen && <div className='absolute  left-[50%] h-[70%] -translate-y-[50%] shadow-lg -translate-x-[50%] top-[50%] p-7 rounded-md w-[80%] bg-gray-800'>
-            <div className='text-center text-5xl mb-10 bg-green-700 rounded-md text-white font-bold'>{wordsPerMinute} WPM</div>
+            <div className='text-center text-5xl mb-4 bg-green-700 rounded-md text-white font-bold'>{wordsPerMinute} WPM</div>
+            <div className='text-center text-5xl mb-10 bg-blue-700 rounded-md text-white font-bold'>{currentCPM} CPM</div>
             <div className='flex justify-between text-2xl px-20'>
               <div className="div">Accuracy</div>
-              <div>{result.accuracy}</div>
+              <div>{result.accuracy}{"%"}</div>
             </div>
+            <div className='w-full h-[1px] bg-white'></div>
+
+           
             <div className='w-full h-[1px] bg-white'></div>
             <div className='flex justify-between text-2xl px-20'>
 
               <div className="div">Correct Words</div>
               <div>{result.right}</div>
             </div>
+
             <div className='w-full h-[1px] bg-white'></div>
 
             <div className='flex justify-between text-2xl px-20'>
 
               <div className="div text-red-600">Wrong Words</div>
               <div>{result.wrong}</div>
+            </div>
+            <div className='w-full h-[1px] bg-white'></div>
+
+            <div className='flex justify-between text-2xl px-20'>
+
+              <div className="div text-red-600">Total Chars typed</div>
+              <div>{characterCount.current}</div>
             </div>
             <div className='w-full h-[1px] bg-white'></div>
 
@@ -404,8 +463,11 @@ export default function TypingBox() {
             <div className="text-3xl text-purple-400">
               {currentWPM} {" wpm"}
             </div>
+            <div className="text-3xl text-blue-400">
+              {currentCPM} {" cpm"}
+            </div>
             <div className='text-3xl text-blue-300 font-bold'>
-            {nextLetterHint=="" ? "😊": nextLetterHint}
+              {nextLetterHint == "" ? "😊" : nextLetterHint}
 
             </div>
 
@@ -414,7 +476,7 @@ export default function TypingBox() {
 
         </div>
 
-        <div className="dark:bg-gray-800 flex flex-wrap p-4 rounded">
+        <div className="bg-gray-800/60 flex flex-wrap p-4 rounded">
           {
             words.map((word, index) => {
               return <span key={index} className={'text-3xl mx-1 p-1 rounded-md font-medium ' +
@@ -430,10 +492,10 @@ export default function TypingBox() {
         </div>
 
         <textarea
-          onCopy={(e)=>e.preventDefault()}
-          onPaste={(e)=>e.preventDefault()}
-          ref ={textAreaRef}
-          className="w-full text-3xl p-4 border-2 dark:bg-gray-800 border-gray-300 rounded focus:outline-none focus:border-blue-500 resize-none h-32"
+          onCopy={(e) => e.preventDefault()}
+          onPaste={(e) => e.preventDefault()}
+          ref={textAreaRef}
+          className="w-full text-3xl p-4  bg-gray-800/20  rounded focus:outline-none focus:border focus:border-gray-300 resize-none "
           value={input}
           onChange={(e) => handleInput(e)}
           placeholder={isActive ? "" : "Start typing here..."}
@@ -442,7 +504,7 @@ export default function TypingBox() {
 
         <div className="flex justify-center space-x-4">
 
-       
+
         </div>
       </div>
     </div>
