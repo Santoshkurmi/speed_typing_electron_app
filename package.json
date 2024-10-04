@@ -1,10 +1,14 @@
 {
-  "name": "electron-app",
-  "version": "1.0.0",
-  "description": "An Electron application with React and TypeScript",
+  "name": "speed-typing-app",
+  "version": "2.1.0",
+  "description": "A speed typing app for nepali as well as english with beautiful UI completely offline",
   "main": "./out/main/index.js",
-  "author": "example.com",
-  "homepage": "https://electron-vite.org",
+  "author": "Santosh Kurmi",
+  "homepage": "santoshkurmi.me",
+  "build": {
+  "productName": "speed-typing-app",
+  "icon": "resources/icon.png"
+  },
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint . --ext .js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix",

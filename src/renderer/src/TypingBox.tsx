@@ -117,8 +117,8 @@ export default function TypingBox() {
   const sentence = useRef<string[]>([]);
 
   const [input, setInput] = useState('');
-  const [language, setLanguage] = useState<"nepali" | "english">("nepali");
-  const [duration, setDuration] = useState(60);
+  const [language, setLanguage] = useState<"nepali" | "english">(  localStorage.getItem("language") =="english" ?  "english" : "nepali");
+  const [duration, setDuration] = useState(  parseInt(localStorage.getItem("timer") ?? "1" )*60  );
   const [nextLetterHint, setNextLetterHint] = useState("");
   const [currentWPM, setCurrentWPM] = useState(0)
   const [currentCPM, setCurrentCPM] = useState(0)
@@ -129,6 +129,7 @@ export default function TypingBox() {
   const [modalIsOpen, setIsOpen] = React.useState(false);
   // const noOfErrors = useRef<number>(0);
   const currentIndexOfWord = useRef<number>(0);
+  const currentCorrectIndexWordLength = useRef<number>(0);
   const errorCounts = useRef<number>(0);
   const totalCount = useRef(0);
   const currentErrorIndex = useRef<number>(-1);
@@ -281,7 +282,7 @@ export default function TypingBox() {
 
   };
 
-  const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     var currentText = e.target.value
     const length = currentText.length;
     // console.log(currentText)
@@ -301,12 +302,10 @@ export default function TypingBox() {
       } else {
         setNextLetterHint("")
       }
-    // previousText.current = currentText
-
-
-    // alert(currentText[currentText.length-1])
+  
     if (isActive && currentText.trim().length > 0 && currentText[length - 1] == " ") {
       // setNextLetterHint("")
+      currentCorrectIndexWordLength.current = 0
       totalCount.current++;
       console.log(totalCount)
       if (currentWord.substring(0, length) + " " != currentText) {
@@ -340,8 +339,13 @@ export default function TypingBox() {
       if (currentWord.substring(0, length) != currentText) {
         currentErrorIndex.current = currentIndexOfWord.current;
         setNextLetterHint("")
+        currentCorrectIndexWordLength.current = 0;
+
       }
-      else currentErrorIndex.current = -1;
+      else{
+        currentErrorIndex.current = -1;
+        currentCorrectIndexWordLength.current = currentText.length;
+      }
 
       setInput(currentText)
     }
@@ -357,6 +361,7 @@ export default function TypingBox() {
     else playerRef.current?.pause()
   }
 
+  // console.log(localStorage.getItem("language"))
   // console.log(duration)
 
   return (
@@ -374,7 +379,7 @@ export default function TypingBox() {
 
 
       <div className="langauge absolute left-10 top-10 p-3">
-            <select onChange={(e) => { setWordLength(  parseInt(e.target.value) ) ; handleReset()}} className='bg-gray-600 rounded-md p-3'>
+            <select  onChange={(e) => { setWordLength(  parseInt(e.target.value) ) ; handleReset()}} className='bg-gray-600 rounded-md p-3'>
               <option value="10">10 Words</option>
               <option value="11">11 Words</option>
               <option value="12">12 Words</option>
@@ -400,7 +405,7 @@ export default function TypingBox() {
         
     
         
-          <select onChange={(e) => { handleReset(); setDuration(parseInt(e.target.value) * 60); setTimer(parseInt(e.target.value) * 60) }} className='bg-gray-600 rounded-md p-3'>
+          <select value={ (timer/60).toString()} onChange={(e) => { handleReset(); setDuration(parseInt(e.target.value) * 60); setTimer(parseInt(e.target.value) * 60);localStorage.setItem("timer",e.target.value) }} className='bg-gray-600 rounded-md p-3'>
             <option value="1">1 Min</option>
             <option value="2">2 Min</option>
             <option value="5">5 Min</option>
@@ -410,7 +415,7 @@ export default function TypingBox() {
           </select>
 
           <div className="langauge  top-0 right-0">
-            <select onChange={(e) => { setLanguage(e.target.value as any) }} className='bg-gray-600 rounded-md p-3'>
+            <select value={language} onChange={(e) => { setLanguage(e.target.value as any);localStorage.setItem("language",e.target.value) }} className='bg-gray-600 rounded-md p-3'>
               <option value="nepali">Nepali</option>
               <option value="english">English</option>
 
@@ -497,22 +502,30 @@ export default function TypingBox() {
         <div className="bg-gray-800/60 flex flex-wrap p-4 rounded">
           {
             words.map((word, index) => {
+
+
+              
+
               return <span key={index} className={'text-3xl mx-1 p-1 rounded-md font-medium ' +
 
-                (index == currentIndexOfWord.current && (currentErrorIndex.current == currentIndexOfWord.current ? "bg-red-500 " : "bg-gray-500 ")) +
+                (index == currentIndexOfWord.current && (currentErrorIndex.current == currentIndexOfWord.current ? "bg-red-500 " : "border border-gray-400 ")) +
                 (index < currentIndexOfWord.current && (errorsIndex.current.indexOf(index) != -1 ? " text-red-500 " : " text-green-500 "))
               }>
-                {word}
+                {language=="english" && currentIndexOfWord.current == index && currentCorrectIndexWordLength.current>0 ? <>
+                
+                <span className='text-green-500'>{word.substring(0,currentCorrectIndexWordLength.current)}</span>
+                <span>{word.substring(currentCorrectIndexWordLength.current)}</span>
+
+                </> : word  }
               </span>
 
             })
           }
         </div>
 
-        <textarea
+        <input
           onCopy={(e) => e.preventDefault()}
           onPaste={(e) => e.preventDefault()}
-          ref={textAreaRef}
           className="w-full text-3xl p-4  bg-gray-800/20  rounded focus:outline-none focus:border focus:border-gray-300 resize-none "
           value={input}
           onChange={(e) => handleInput(e)}
