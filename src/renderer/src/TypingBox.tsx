@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { PauseIcon, Play, RefreshCw } from 'lucide-react';
+import { PauseIcon, Play, RefreshCw, Timer } from 'lucide-react';
 import nepaliCorpus from "./assets/nepali.txt";
 import englishCorpus from "./assets/english.txt";
 import wallpaer from "./assets/bg.jpg";
@@ -127,6 +127,14 @@ export default function TypingBox() {
   const [isActive, setIsActive] = useState(false);
   const [wordsPerMinute, setWordsPerMinute] = useState(0);
   const [modalIsOpen, setIsOpen] = React.useState(false);
+
+  const [sentenceToCompare,setSentenceToCompare] =  useState("");
+  const [sentenceToCompareTime,setSentenceToCompareTime] =  useState(0);
+  const startTime = useRef<null|number>(null)
+  const [isSentenceTesting, setSententenceTesting] =useState(false);
+
+  
+
   // const noOfErrors = useRef<number>(0);
   const currentIndexOfWord = useRef<number>(0);
   const currentCorrectIndexWordLength = useRef<number>(0);
@@ -282,8 +290,23 @@ export default function TypingBox() {
 
   };
 
+  const sentenceTesting = (input:string)=>{
+      setInput(input)
+      if(startTime.current==null || input.trim().length==0){
+        startTime.current = Date.now()
+        return
+      }
+      if(sentenceToCompare+" " == input){
+        setSentenceToCompareTime(Date.now() - startTime.current)
+        startTime.current = null
+        setInput("")
+        return 
+      }
+  }
+
   const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     var currentText = e.target.value
+    if(isSentenceTesting) return sentenceTesting(currentText);
     const length = currentText.length;
     // console.log(currentText)
     const currentWord = words[currentIndexOfWord.current]
@@ -376,7 +399,8 @@ export default function TypingBox() {
 
 
       <div className="w-full   max-w-5xl relative bg-gray-700/70 rounded-lg shadow-md p-6 space-y-6">
-
+      
+      <button onClick={()=>setSententenceTesting(prev=>!prev)} className='absolute left-0 top-0 p-4'></button>
 
       <div className="langauge absolute left-10 top-10 p-3">
             <select  onChange={(e) => { setWordLength(  parseInt(e.target.value) ) ; handleReset()}} className='bg-gray-600 rounded-md p-3'>
@@ -501,7 +525,14 @@ export default function TypingBox() {
 
         <div className="bg-gray-800/60 flex flex-wrap p-4 rounded">
           {
-            words.map((word, index) => {
+           isSentenceTesting ?
+            <input
+           onChange={(e)=>setSentenceToCompare(e.target.value)}
+           value={sentenceToCompare}
+           placeholder='Enter sentence to test'
+          className="w-full text-3xl p-4  bg-gray-800/20  rounded focus:outline-none focus:border focus:border-gray-300 resize-none "
+
+           /> :words.map((word, index) => {
 
 
               
@@ -521,7 +552,16 @@ export default function TypingBox() {
 
             })
           }
+
+         
         </div>
+
+        {
+            isSentenceTesting && <div className='text-2xl flex gap-3 justify-center items-center text-yellow-400'>
+            <Timer/>
+              {sentenceToCompareTime} ms</div>
+          }
+
 
         <input
           onCopy={(e) => e.preventDefault()}
