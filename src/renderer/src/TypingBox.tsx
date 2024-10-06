@@ -10,7 +10,8 @@ const keyToNep: any = {
   //
   "a": "\u093E", // ा
   "b": "\u092C", // ब
-  "c": "\u091B", // छ
+  "c": "\u091A", // च
+
   "d": "\u0926", // द
   "e": "\u0947", // े
   "f": "\u0909", // उ
@@ -37,7 +38,7 @@ const keyToNep: any = {
   //
   "A": "\u0906", // आ
   "B": "\u092D", // भ
-  "C": "\u091A", // च
+  "C": "\u091B", // छ
   "D": "\u0927", // ध
   "E": "\u0948", // ै
   "F": "\u090A", // ऊ
@@ -103,6 +104,12 @@ const keyToNep: any = {
 
 const keyToEng: any = {};
 
+
+enum Level{
+  VERY_LOW,LOW,MEDIUM,HIGH,VERY_HIGH,ULTRA_HIGH
+}
+
+
 Object.keys(keyToNep).forEach(key => {
   const value = keyToNep[key];
   keyToEng[value] = key;  // Swap key and value
@@ -127,11 +134,17 @@ export default function TypingBox() {
   const [isActive, setIsActive] = useState(false);
   const [wordsPerMinute, setWordsPerMinute] = useState(0);
   const [modalIsOpen, setIsOpen] = React.useState(false);
+  const [wordDuration,setWordDuration] = useState<number[]>([])
 
   const [sentenceToCompare,setSentenceToCompare] =  useState("");
   const [sentenceToCompareTime,setSentenceToCompareTime] =  useState(0);
   const startTime = useRef<null|number>(null)
+  const [level,setLevel] = useState<Level>(parseInt(localStorage.getItem("level") ?? "2" ))
   const [isSentenceTesting, setSententenceTesting] =useState(false);
+  const [showEachWordTime,setShowEachWordTime] = useState(  localStorage.getItem("showTime")=="true"? true:false  )
+
+  const [accuracy,setAccuracy] = useState(0)
+  const [limiter,setLimiter] = useState(0)
 
   
 
@@ -172,7 +185,7 @@ export default function TypingBox() {
     handleReset()
     // console.log("hello2")
     setRandomWords()
-  }, [fileContent])
+  }, [fileContent,level])
 
 
 
@@ -181,10 +194,18 @@ export default function TypingBox() {
 
     var sentenceNow = sentence.current;
     var senTrack = sentenceWordTrack.current;
-    console.log(sentence.current, "Now")
+    // console.log(sentence.current, "Now")
     if (sentenceNow.length == 0) {
       const index = Math.round(Math.random() * (fileContent.length - 1));
-      sentence.current = fileContent[index].split(" ")
+      if(language=="nepali")
+        sentence.current = fileContent[index].split(" ")
+      
+      else if(level==Level.VERY_LOW)
+        sentence.current = fileContent[index]. replace(/[.,'"]/g, "").replace("  ","").toLowerCase().split(" ")
+      else if (level == Level.LOW)
+        sentence.current = fileContent[index].toLowerCase().split(" ")
+      else if (level == Level.MEDIUM)
+        sentence.current = fileContent[index].split(" ")
       sentenceNow = sentence.current;
 
       sentenceWordTrack.current = 0;
@@ -264,6 +285,8 @@ export default function TypingBox() {
     setNextLetterHint("")
     setCurrentCPM(0)
     setCurrentWPM(0)
+    setWordDuration([])
+    startTime.current = null;
     characterCount.current = 0
     setWordsPerMinute(0);
   };
@@ -285,6 +308,8 @@ export default function TypingBox() {
     setCurrentWPM(0)
     setCurrentCPM(0)
     setWordsPerMinute(0);
+    setWordDuration([])
+    startTime.current = null;
     characterCount.current = 0
     setRandomWords()
 
@@ -292,22 +317,45 @@ export default function TypingBox() {
 
   const sentenceTesting = (input:string)=>{
       setInput(input)
-      if(startTime.current==null || input.trim().length==0){
-        startTime.current = Date.now()
+      if(input.length==0){
+        startTime.current = null;
+        return;
+      }
+      if(startTime.current==null){
+        startTime.current = performance.now()
         return
       }
       if(sentenceToCompare+" " == input){
-        setSentenceToCompareTime(Date.now() - startTime.current)
+        setSentenceToCompareTime( Math.ceil( performance.now() - startTime.current ) )
         startTime.current = null
         setInput("")
         return 
       }
   }
 
+  const wordDurationCalculate = (input:string)=>{
+    // setInput(input)
+    if(input.length==0){
+      startTime.current = null;
+      return;
+    }
+    if(startTime.current==null){
+      startTime.current = performance.now()
+      return
+    }
+    // if(sentenceToCompare+" " == input){
+    
+    //   setInput("")
+    //   return 
+    // }
+}
   const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    
     var currentText = e.target.value
-    if(isSentenceTesting) return sentenceTesting(currentText);
     const length = currentText.length;
+    if(currentText=="\n" || currentText==" " || currentText.length>0 && currentText[length - 1] == "\n" ) return
+    if(isSentenceTesting) return sentenceTesting(currentText);
+    wordDurationCalculate(currentText)
     // console.log(currentText)
     const currentWord = words[currentIndexOfWord.current]
 
@@ -330,12 +378,41 @@ export default function TypingBox() {
       // setNextLetterHint("")
       currentCorrectIndexWordLength.current = 0
       totalCount.current++;
-      console.log(totalCount)
+      // console.log(totalCount)
       if (currentWord.substring(0, length) + " " != currentText) {
+        if(limiter>0) return
         errorsIndex.current.push(currentIndexOfWord.current);
+        setSentenceToCompareTime(0)
+        setWordDuration(prev=>[...prev,0])
+        // startTime.current = null
         errorCounts.current++;
         // alert()
       } else {
+
+        if(startTime.current){
+          var dura =  Math.ceil( performance.now() - startTime.current );
+          startTime.current = null;
+         if(limiter>0){
+          var totalTime = length * limiter
+          var diff = dura - totalTime
+          if(diff>0) {
+            setSentenceToCompareTime(-diff)
+            currentCorrectIndexWordLength.current = 0
+            setInput("")
+
+            return
+          }
+          else{
+            dura = -diff;
+          }
+         }
+       
+          setWordDuration(prev=>[...prev,dura])
+          setSentenceToCompareTime(dura )
+        }
+     
+
+        startTime.current = null
         characterCount.current = characterCount.current + currentWord.length;
         // setCharaterCount(prev=>prev+)
       }
@@ -345,6 +422,7 @@ export default function TypingBox() {
 
       if (currentIndexOfWord.current > words.length - 1) {
         setRandomWords()
+        setWordDuration([])
         currentIndexOfWord.current = 0;
         errorsIndex.current = [];
         currentErrorIndex.current = -1;
@@ -356,9 +434,9 @@ export default function TypingBox() {
 
       setInput("")
       calculateCurrentWPM()
+
     }
     else {
-      // alert(currentWord.slice(0,length))
       if (currentWord.substring(0, length) != currentText) {
         currentErrorIndex.current = currentIndexOfWord.current;
         setNextLetterHint("")
@@ -398,11 +476,13 @@ export default function TypingBox() {
 
 
 
-      <div className="w-full   max-w-5xl relative bg-gray-700/70 rounded-lg shadow-md p-6 space-y-6">
+      <div className="w-full   max-w-5xl relative bg-gray-700/70 rounded-lg shadow-md p-6 py-12">
       
       <button onClick={()=>setSententenceTesting(prev=>!prev)} className='absolute left-0 top-0 p-4'></button>
+      <button onClick={()=>{setShowEachWordTime(prev=>{ localStorage.setItem("showTime",prev? "false":"true" );return !prev})   }} className='absolute right-0 top-0 p-4'></button>
 
-      <div className="langauge absolute left-10 top-10 p-3">
+
+      <div className="langauge absolute flex gap-5 left-10 top-10 p-3">
             <select  onChange={(e) => { setWordLength(  parseInt(e.target.value) ) ; handleReset()}} className='bg-gray-600 rounded-md p-3'>
               <option value="10">10 Words</option>
               <option value="11">11 Words</option>
@@ -418,9 +498,21 @@ export default function TypingBox() {
 
             </select>
 
-          <div onClick={toggleMusic} className='absolute hover:opacity-85 active:opacity-65 top-4 -right-16'>
+          <div onClick={toggleMusic} className=' hover:opacity-85 active:opacity-65 top-4 -right-16'>
             {playing?  <PauseIcon size={30} className='text-green-300 '/> :<Play size={30} className='text-red-500'/>}
           </div>
+
+          {
+            language=="english" && 
+            <select value={level}  onChange={(e) => { setLevel(  parseInt(e.target.value) );localStorage.setItem("level",e.target.value) }} className='bg-gray-600 rounded-md p-3'>
+            <option value={Level.VERY_LOW}>Very Low</option>
+            <option value={Level.LOW}>Low</option>
+            <option value={Level.MEDIUM}>Medium</option>
+          </select>
+          }
+         
+
+            <input type='text' value={limiter} onChange={(e)=> setLimiter(parseInt(e.target.value==""? "0": e.target.value) ?? 0)} className='w-12 text-xl rounded-lg bg-gray-600' />
 
           </div>
 
@@ -454,7 +546,7 @@ export default function TypingBox() {
         </div>
 
         {
-          modalIsOpen && <div className='absolute  left-[50%] h-[70%] -translate-y-[50%] shadow-lg -translate-x-[50%] top-[50%] p-7 rounded-md w-[80%] bg-gray-800'>
+          modalIsOpen && <div className='absolute z-50  left-[50%] h-[70%] -translate-y-[50%] shadow-lg -translate-x-[50%] top-[50%] p-7 rounded-md w-[80%] bg-gray-800'>
             <div className='text-center text-5xl mb-4 bg-green-700 rounded-md text-white font-bold'>{wordsPerMinute} WPM</div>
             <div className='text-center text-5xl mb-10 bg-blue-700 rounded-md text-white font-bold'>{currentCPM} CPM</div>
             <div className='flex justify-between text-2xl px-20'>
@@ -537,11 +629,17 @@ export default function TypingBox() {
 
               
 
-              return <span key={index} className={'text-3xl mx-1 p-1 rounded-md font-medium ' +
+              return <span key={index} className={'text-3xl relative mx-1 p-1 py-2 rounded-md font-medium ' +
 
                 (index == currentIndexOfWord.current && (currentErrorIndex.current == currentIndexOfWord.current ? "bg-red-500 " : "border border-gray-400 ")) +
                 (index < currentIndexOfWord.current && (errorsIndex.current.indexOf(index) != -1 ? " text-red-500 " : " text-green-500 "))
               }>
+
+              {
+                 showEachWordTime && index < currentIndexOfWord.current  &&
+                <span className='absolute w-full text-center bottom-[65%] text-xl text-yellow-400'>{wordDuration[index]}</span>
+
+              }
                 {language=="english" && currentIndexOfWord.current == index && currentCorrectIndexWordLength.current>0 ? <>
                 
                 <span className='text-green-500'>{word.substring(0,currentCorrectIndexWordLength.current)}</span>
@@ -557,13 +655,15 @@ export default function TypingBox() {
         </div>
 
         {
-            isSentenceTesting && <div className='text-2xl flex gap-3 justify-center items-center text-yellow-400'>
+             <div className='text-2xl flex gap-3 justify-center items-center text-yellow-400'>
             <Timer/>
               {sentenceToCompareTime} ms</div>
           }
 
 
-        <input
+        <textarea
+          rows={1}
+          ref={textAreaRef}
           onCopy={(e) => e.preventDefault()}
           onPaste={(e) => e.preventDefault()}
           className="w-full text-3xl p-4  bg-gray-800/20  rounded focus:outline-none focus:border focus:border-gray-300 resize-none "
