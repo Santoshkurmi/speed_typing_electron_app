@@ -201,7 +201,7 @@ export default function TypingBox() {
         sentence.current = fileContent[index].split(" ")
       
       else if(level==Level.VERY_LOW)
-        sentence.current = fileContent[index]. replace(/[.,'"]/g, "").replace(/  /g,"").toLowerCase().split(" ")
+        sentence.current = fileContent[index]. replace(/[.,'"]/g, "").replace(/  /g," ").toLowerCase().split(" ")
       else if (level == Level.LOW)
         sentence.current = fileContent[index].toLowerCase().split(" ")
       else if (level == Level.MEDIUM)
