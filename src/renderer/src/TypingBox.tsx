@@ -144,7 +144,7 @@ export default function TypingBox() {
   const [showEachWordTime,setShowEachWordTime] = useState(  localStorage.getItem("showTime")=="true"? true:false  )
 
   const [accuracy,setAccuracy] = useState(0)
-  const [limiter,setLimiter] = useState(0)
+  const [limiter,setLimiter] = useState(  parseInt(localStorage.getItem("limiter") ?? "0")  )
 
   
 
@@ -195,13 +195,16 @@ export default function TypingBox() {
     var sentenceNow = sentence.current;
     var senTrack = sentenceWordTrack.current;
     // console.log(sentence.current, "Now")
+    // console.log( "a place . ?>, pp  323323 443 4343 332qza aa area ". replace(/[^a-zA-Z ]+/g, "").trim().toLowerCase().split(/[ ]+/ )    )
+
     if (sentenceNow.length == 0) {
       const index = Math.round(Math.random() * (fileContent.length - 1));
       if(language=="nepali")
         sentence.current = fileContent[index].split(" ")
       
+
       else if(level==Level.VERY_LOW)
-        sentence.current = fileContent[index]. replace(/[.,'"]/g, "").replace(/[ ]+/g," ").toLowerCase().split(" ")
+        sentence.current = fileContent[index]. replace(/[^a-zA-Z ]+/g, "").trim().toLowerCase().split(/[ ]+/)
       else if (level == Level.LOW)
         sentence.current = fileContent[index].toLowerCase().split(" ")
       else if (level == Level.MEDIUM)
@@ -403,7 +406,7 @@ export default function TypingBox() {
             return
           }
           else{
-            dura = -diff;
+            dura = Math.ceil( -diff/totalTime *100);
           }
          }
        
@@ -512,7 +515,7 @@ export default function TypingBox() {
           }
          
 
-            <input type='text' value={limiter} onChange={(e)=> setLimiter(parseInt(e.target.value==""? "0": e.target.value) ?? 0)} className='w-12 text-xl rounded-lg bg-gray-600' />
+            <input type='text' value={limiter} onChange={(e)=>{ setLimiter(parseInt(e.target.value==""? "0": e.target.value) ?? 0);localStorage.setItem("limiter",e.target.value) }} className='w-12 text-xl rounded-lg bg-gray-600' />
 
           </div>
 
@@ -637,7 +640,7 @@ export default function TypingBox() {
 
               {
                  showEachWordTime && index < currentIndexOfWord.current  &&
-                <span className='absolute w-full text-center bottom-[65%] text-xl text-yellow-400'>{wordDuration[index]}</span>
+                <span className='absolute w-full text-center bottom-[65%] text-xl text-yellow-400'>{wordDuration[index]}{limiter>0 && "%"}</span>
 
               }
                 {language=="english" && currentIndexOfWord.current == index && currentCorrectIndexWordLength.current>0 ? <>
